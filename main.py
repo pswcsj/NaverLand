@@ -2,12 +2,14 @@ from selenium import webdriver
 from selenium.webdriver.common.by import By
 import time
 from selenium.webdriver.common.keys import Keys
+import json
+import pandas as pd
 
 type_dict = {
     '매매':'A1',
-    '전세':'A2',
-    '월세':'B1',
-    '단기임대':'B2'
+    '전세':'B1',
+    '월세':'B2',
+    '단기임대':'B3'
 }
 gun_dict = {
     '아파트':'APT',
@@ -31,6 +33,14 @@ gun_dict = {
     '사무실':'SMS'
 }
 
+def get_values(url):
+    info_list = url.split('/')
+    lan = info_list[4].split(':')[0]
+    lon = info_list[4].split(':')[1]
+    z = info_list[4].split(':')[2]
+    cortarNo = info_list[4].split(':')[3]
+    return lan, lon, z, cortarNo
+
 driver = webdriver.Chrome('./chromedriver')
 
 loc = input("지역을 입력하세요 > ")
@@ -48,7 +58,8 @@ type = input("원하는 거래 방식을 입력하세요 >")
 type_key = type_dict[type]
 
 print(list(gun_dict.keys()))
-gun = gun_dict[input("원하는 건물을 입력하세요 >")]
+gunn = input("원하는 건물을 입력하세요 >")
+gun = gun_dict[gunn]
 
 if type=='매매':
     priceMin = input("매매가의 최솟값을 입력하세요(만) >")
@@ -66,15 +77,50 @@ elif (type=='월세') | (type=='단기임대'):
     price = '?wprcMin='+str(priceWMin)+'&wprcMax='+str(priceWMax)+\
             '&rprcMin='+str(priceMMin)+'&rprcMax='+str(priceMMax)+'&'
 
+#위의 입력한 조건들 만족시키는 url로 접속
 driver.get(url+'/'+gun+'/'+type_key+price)
-print(driver.current_url)
+
+#단지 정보를 받아옴
+lan, lon, z, cortaNo = get_values(driver.current_url)
+url_info = 'cortarNo='+str(cortaNo)+'&rletTpCd='\
+    +gun+'&tradTpCd='+type_key+'&z='+str(z)+'&lat='+str(lan)+'&lon='+str(lon)+'&'+price
+url_dan = 'https://m.land.naver.com/cluster/clusterList?view=atcl&'+url_info
+driver.get(url_dan)
+
+time.sleep(1)
+json_datar = driver.find_element(By.XPATH, '/html/body/pre').text
+json_data = json.loads(json_datar)
+
+total_cnt = 0
+for data in json_data['data']['ARTICLE']:
+    total_cnt += data['count']
+print(total_cnt)
+
+url_house = 'https://m.land.naver.com/cluster/ajax/articleList?'+url_info+'sort=rank&page='
+df = pd.DataFrame(columns=['거래 방식', '지역', '매물 종류', '가격대', '면적', '특징'])
+
+for i in range(1, int((total_cnt)/20)+2):
+    driver.get(url_house+str(i))
+    json_data = json.loads(driver.find_element(By.XPATH, '/html/body/pre').text)['body']
+    if (type == '매매') | (type == '전세'):
+        for data in json_data:
+            try:
+                df.loc[len(df)] = [type, loc+' '+data['atclNm']+' '+data['bildNm']+' '+data['flrInfo'], gunn, data['prc'], str(data['spc1'])+'/'+str(data['spc2']), data['atclFetrDesc']]
+            except KeyError:
+                df.loc[len(df)] = [type, loc+' '+data['atclNm']+' '+data['bildNm']+' '+data['flrInfo'], gunn, data['prc'], str(data['spc1'])+'/'+str(data['spc2']), '-']
+    elif (type == '월세') | (type == '단기임대'):
+        for data in json_data:
+            try:
+                df.loc[len(df)] = [type, loc+' '+data['atclNm']+' '+data['bildNm']+' '+data['flrInfo'], gunn, str(data['prc'])+'/'+str(data['rentPrc']), str(data['spc1'])+'/'+str(data['spc2']), data['atclFetrDesc']]
+            except KeyError:
+                df.loc[len(df)] = [type, loc+' '+data['atclNm']+' '+data['bildNm']+' '+data['flrInfo'], gunn, str(data['prc'])+'/'+str(data['rentPrc']), str(data['spc1'])+'/'+str(data['spc2']), '-']
+    # print(json_data)
+    print(df)
+
+df.to_csv('result.csv')
 time.sleep(1)
 
-# https://m.land.naver.com/cluster/clusterList?view=atcl&cortarNo=4127300000&rletTpCd=OPST&tradTpCd=A1%3AB1%3AB2&z=13&lat=37.319537&lon=126.811832&pCortarNo=%20Request%20Method:%20GET
-
-#매물 보기 클릭
-try: driver.find_element(By.XPATH, '//*[@id="_mapSection"]/div[2]').click()
-except: time.sleep(0.1)
+driver.quit()
 
 
 
