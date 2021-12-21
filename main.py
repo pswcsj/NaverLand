@@ -1,9 +1,8 @@
-from selenium import webdriver
-from selenium.webdriver.common.by import By
 import time
-from selenium.webdriver.common.keys import Keys
 import json
 import pandas as pd
+import requests
+from bs4 import BeautifulSoup
 
 type_dict = {
     '매매':'A1',
@@ -32,26 +31,31 @@ gun_dict = {
     '고시원':'GSW',
     '사무실':'SMS'
 }
+header = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/86.0.4240.198 Safari/537.36",
+    'Referer' : 'https://m.land.naver.com/'
+}
 
 def get_values(url):
     info_list = url.split('/')
     lan = info_list[4].split(':')[0]
     lon = info_list[4].split(':')[1]
     z = info_list[4].split(':')[2]
-    cortarNo = info_list[4].split(':')[3]
+    try: cortarNo = info_list[4].split(':')[3]
+    except IndexError: cortarNo = ''
     return lan, lon, z, cortarNo
 
-driver = webdriver.Chrome('./chromedriver')
-
 loc = input("지역을 입력하세요 > ")
-driver.get('https://m.land.naver.com/search/result/'+loc)
-while driver.current_url.split('/')[3] != 'map':
+response = requests.get('https://m.land.naver.com/search/result/'+loc, headers = header)
+print(response.url)
+
+while response.url.split('/')[3] != 'map':
     loc = input("지역을 더 자세히 입력하세요 > ")
-    driver.get('https://m.land.naver.com/search/result/' + loc)
-    time.sleep(0.1)
+    response = requests.get('https://m.land.naver.com/search/result/'+loc, headers = header)
+    # time.sleep(0.1)
 
 #url로 조건 설정
-url_divide = driver.current_url.split('/'); url_divide.pop(); url_divide.pop();
+url_divide = response.url.split('/'); url_divide.pop(); url_divide.pop();
 url = '/'.join(url_divide)
 print(list(type_dict.keys()))
 type = input("원하는 거래 방식을 입력하세요 >")
@@ -78,18 +82,17 @@ elif (type=='월세') | (type=='단기임대'):
             '&rprcMin='+str(priceMMin)+'&rprcMax='+str(priceMMax)+'&'
 
 #위의 입력한 조건들 만족시키는 url로 접속
-driver.get(url+'/'+gun+'/'+type_key+price)
+response = requests.get(url+'/'+gun+'/'+type_key+price, headers = header)
 
 #단지 정보를 받아옴
-lan, lon, z, cortaNo = get_values(driver.current_url)
+lan, lon, z, cortaNo = get_values(response.url)
 url_info = 'cortarNo='+str(cortaNo)+'&rletTpCd='\
-    +gun+'&tradTpCd='+type_key+'&z='+str(z)+'&lat='+str(lan)+'&lon='+str(lon)+'&'+price
+    +gun+'&tradTpCd='+type_key+'&z='+str(z)+'&lat='+str(lan)+'&lon='+str(lon)+'&'+price[1:]
 url_dan = 'https://m.land.naver.com/cluster/clusterList?view=atcl&'+url_info
-driver.get(url_dan)
-
-time.sleep(1)
-json_datar = driver.find_element(By.XPATH, '/html/body/pre').text
-json_data = json.loads(json_datar)
+response = requests.get(url_dan, headers = header)
+soup = BeautifulSoup(response.text, 'html.parser')
+# time.sleep(1)
+json_data = json.loads(soup.contents[0])
 
 total_cnt = 0
 for data in json_data['data']['ARTICLE']:
@@ -100,8 +103,17 @@ url_house = 'https://m.land.naver.com/cluster/ajax/articleList?'+url_info+'sort=
 df = pd.DataFrame(columns=['거래 방식', '지역', '매물 종류', '가격대', '면적', '특징'])
 
 for i in range(1, int((total_cnt)/20)+2):
-    driver.get(url_house+str(i))
-    json_data = json.loads(driver.find_element(By.XPATH, '/html/body/pre').text)['body']
+    response = requests.get(url_house+str(i), headers = header)
+    soup = BeautifulSoup(response.text, 'html.parser')
+    try:
+        json_data = json.loads(soup.contents[0])['body']
+    except json.decoder.JSONDecodeError:
+        print("https://m.land.naver.com 에 접속해서 로봇 인증을 해주세요")
+        while response.url == 'https://m.land.naver.com/error/abuse':
+            response = requests.get(url_house + str(i), headers=header)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            time.sleep(0.1)
+        json_data = json.loads(soup.contents[0])['body']
     if (type == '매매') | (type == '전세'):
         for data in json_data:
             try:
@@ -114,26 +126,5 @@ for i in range(1, int((total_cnt)/20)+2):
                 df.loc[len(df)] = [type, loc+' '+data['atclNm']+' '+data['bildNm']+' '+data['flrInfo'], gunn, str(data['prc'])+'/'+str(data['rentPrc']), str(data['spc1'])+'/'+str(data['spc2']), data['atclFetrDesc']]
             except KeyError:
                 df.loc[len(df)] = [type, loc+' '+data['atclNm']+' '+data['bildNm']+' '+data['flrInfo'], gunn, str(data['prc'])+'/'+str(data['rentPrc']), str(data['spc1'])+'/'+str(data['spc2']), '-']
-    # print(json_data)
     print(df)
-
 df.to_csv('result.csv')
-time.sleep(1)
-
-driver.quit()
-
-
-
-
-
-
-# user_agent = driver.execute_script("return navigator.userAgent;") #useragent 정보 네이버가 봇감지하는 것을 방지하기 위해 사용
-# print(user_agent)
-#
-# header = {
-#     'User-Agent': user_agent,
-#     'Referer' : 'https://m.land.naver.com/'
-# }
-
-
-# driver.close()
