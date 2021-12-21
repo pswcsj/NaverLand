@@ -3,8 +3,7 @@
   <component name="ChangeListManager">
     <list default="true" id="af393684-421e-429f-9cfd-ce1828bf8e29" name="Default Changelist" comment="">
       <change beforePath="$PROJECT_DIR$/.gitignore" beforeDir="false" afterPath="$PROJECT_DIR$/.gitignore" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/chromedriver" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/main.py" beforeDir="false" afterPath="$PROJECT_DIR$/main.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -110,7 +109,7 @@
       <workItem from="1639932584214" duration="346000" />
       <workItem from="1639974744892" duration="14056000" />
       <workItem from="1640052125950" duration="1463000" />
-      <workItem from="1640067881257" duration="8805000" />
+      <workItem from="1640067881257" duration="9084000" />
     </task>
     <servers />
   </component>
