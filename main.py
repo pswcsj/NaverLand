@@ -63,9 +63,14 @@ response = requests.get('https://m.land.naver.com/search/result/'+loc, headers =
 print(response.url)
 
 while response.url.split('/')[3] != 'map':
-    loc = input("지역을 더 자세히 입력하세요 > ")
-    response = requests.get('https://m.land.naver.com/search/result/'+loc, headers = header)
-    # time.sleep(0.1)
+    if response.url == 'https://m.land.naver.com/error/abuse':
+        while response.url == 'https://m.land.naver.com/error/abuse':
+            response = requests.get('https://m.land.naver.com/search/result/'+loc, headers = header)
+            soup = BeautifulSoup(response.text, 'html.parser')
+            time.sleep(0.1)
+    else:
+        loc = input("지역을 더 자세히 입력하세요 > ")
+        response = requests.get('https://m.land.naver.com/search/result/'+loc, headers = header)
 
 #url로 조건 설정
 url_divide = response.url.split('/'); url_divide.pop(); url_divide.pop();
