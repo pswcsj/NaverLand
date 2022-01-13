@@ -36,6 +36,7 @@ header = {
     'Referer' : 'https://m.land.naver.com/'
 }
 
+
 def get_values(url):
     info_list = url.split('/')
     lan = info_list[4].split(':')[0]
@@ -44,6 +45,18 @@ def get_values(url):
     try: cortarNo = info_list[4].split(':')[3]
     except IndexError: cortarNo = ''
     return lan, lon, z, cortarNo
+
+
+def get_loc(data):
+    url = 'https://map.naver.com/v5/api/geocode?request=coordsToaddr&version=1.0&sourcecrs=epsg:4326&output=json&orders=addr&coords='+ str(data['lng'])+','+str(data['lat'])
+    res = requests.get(url, headers=header)
+    soop = BeautifulSoup(res.text, 'html.parser')
+
+    json_ju = json.loads(soop.contents[0])['results'][0]
+    location = json_ju['region']['area1']['name']+' '+json_ju['region']['area2']['name']+' '+json_ju['region']['area3']['name']+' '+json_ju['region']['area4']['name']+\
+        json_ju['land']['number1']+'-'+json_ju['land']['number2']
+    return location
+
 
 loc = input("지역을 입력하세요 > ")
 response = requests.get('https://m.land.naver.com/search/result/'+loc, headers = header)
@@ -100,7 +113,7 @@ for data in json_data['data']['ARTICLE']:
 print(total_cnt)
 
 url_house = 'https://m.land.naver.com/cluster/ajax/articleList?'+url_info+'sort=rank&page='
-df = pd.DataFrame(columns=['거래 방식', '지역', '매물 종류', '가격대', '면적', '특징'])
+df = pd.DataFrame(columns=['거래 방식', '지역', '매물 종류', '가격대', '면적', '특징', '매물번호', '부동산', '상세정보 링크'])
 
 for i in range(1, int((total_cnt)/20)+2):
     response = requests.get(url_house+str(i), headers = header)
@@ -114,17 +127,75 @@ for i in range(1, int((total_cnt)/20)+2):
             soup = BeautifulSoup(response.text, 'html.parser')
             time.sleep(0.1)
         json_data = json.loads(soup.contents[0])['body']
+
     if (type == '매매') | (type == '전세'):
         for data in json_data:
-            try:
-                df.loc[len(df)] = [type, loc+' '+data['atclNm']+' '+data['bildNm']+' '+data['flrInfo'], gunn, data['prc'], str(data['spc1'])+'/'+str(data['spc2']), data['atclFetrDesc']]
-            except KeyError:
-                df.loc[len(df)] = [type, loc+' '+data['atclNm']+' '+data['bildNm']+' '+data['flrInfo'], gunn, data['prc'], str(data['spc1'])+'/'+str(data['spc2']), '-']
+            sameCnt = data['sameAddrCnt']
+            if sameCnt >= 2:
+                url_jung = 'https://m.land.naver.com/article/getSameAddrArticle?articleNo='+str(data['atclNo'])
+                response = requests.get(url_jung, headers=header)
+                soup = BeautifulSoup(response.text, 'html.parser')
+
+                try:
+                    json_jung = json.loads(soup.contents[0])
+                except json.decoder.JSONDecodeError:
+                    print("https://m.land.naver.com/error/abuse에 접속해 로봇 인증을 하세요")
+                    while response.url == 'https://m.land.naver.com/error/abuse':
+                        response = requests.get(url_jung, headers=header)
+                        soup = BeautifulSoup(response.text, 'html.parser')
+                        time.sleep(0.1)
+                    json_jung = json.loads(soup.contents[0])
+
+                for data in json_jung:
+                    location = get_loc(data)
+                    try:
+                        df.loc[len(df)] = [type,
+                                           location + ' ' + data['atclNm'] + ' ' + data['bildNm'] + ' ' + data['flrInfo'],
+                                           gunn, data['prc'], str(data['spc1']) + '/' + str(data['spc2']),
+                                           data['atclFetrDesc'], data['atclNo'], data['rltrNm'], 'https://m.land.naver.com/article/info/'+str(data['atclNo'])]
+
+                    except KeyError:
+                        df.loc[len(df)] = [type,
+                                           location + ' ' + data['atclNm'] + ' ' + data['bildNm'] + ' ' + data['flrInfo'],
+                                           gunn, data['prc'], str(data['spc1']) + '/' + str(data['spc2']), '-', data['atclNo'], data['rltrNm'], 'https://m.land.naver.com/article/info/'+str(data['atclNo'])]
+
+            else:
+                try:
+                    df.loc[len(df)] = [type, location+' '+data['atclNm']+' '+data['bildNm']+' '+data['flrInfo'], gunn, data['prc'], str(data['spc1'])+'/'+str(data['spc2']), data['atclFetrDesc'], data['atclNo'], data['rltrNm'], 'https://m.land.naver.com/article/info/'+str(data['atclNo'])]
+                except KeyError:
+                    df.loc[len(df)] = [type, location+' '+data['atclNm']+' '+data['bildNm']+' '+data['flrInfo'], gunn, data['prc'], str(data['spc1'])+'/'+str(data['spc2']), '-', data['atclNo'], data['rltrNm'], 'https://m.land.naver.com/article/info/'+str(data['atclNo'])]
+
     elif (type == '월세') | (type == '단기임대'):
         for data in json_data:
-            try:
-                df.loc[len(df)] = [type, loc+' '+data['atclNm']+' '+data['bildNm']+' '+data['flrInfo'], gunn, str(data['prc'])+'/'+str(data['rentPrc']), str(data['spc1'])+'/'+str(data['spc2']), data['atclFetrDesc']]
-            except KeyError:
-                df.loc[len(df)] = [type, loc+' '+data['atclNm']+' '+data['bildNm']+' '+data['flrInfo'], gunn, str(data['prc'])+'/'+str(data['rentPrc']), str(data['spc1'])+'/'+str(data['spc2']), '-']
+            sameCnt = data['sameAddrCnt']
+            if sameCnt >= 2:
+                url_jung = 'https://m.land.naver.com/article/getSameAddrArticle?articleNo=' + str(data['atclNo'])
+                response = requests.get(url_jung, headers=header)
+                soup = BeautifulSoup(response.text, 'html.parser')
+                try:
+                    json_jung = json.loads(soup.contents[0])
+                except json.decoder.JSONDecodeError:
+                    print("https://m.land.naver.com/error/abuse에 접속해 로봇 인증을 하세요")
+                    while response.url == 'https://m.land.naver.com/error/abuse':
+                        response = requests.get(url_jung, headers=header)
+                        soup = BeautifulSoup(response.text, 'html.parser')
+                        time.sleep(0.1)
+                    json_jung = json.loads(soup.contents[0])
+                for data in json_jung:
+                    try:
+                        df.loc[len(df)] = [type,
+                                           location + ' ' + data['atclNm'] + ' ' + data['bildNm'] + ' ' + data['flrInfo'],
+                                           gunn, str(data['prc']) + '/' + str(data['rentPrc']),
+                                           str(data['spc1']) + '/' + str(data['spc2']), data['atclFetrDesc'], data['atclNo'], data['rltrNm'], 'https://m.land.naver.com/article/info/'+str(data['atclNo'])]
+                    except KeyError:
+                        df.loc[len(df)] = [type,
+                                           location + ' ' + data['atclNm'] + ' ' + data['bildNm'] + ' ' + data['flrInfo'],
+                                           gunn, str(data['prc']) + '/' + str(data['rentPrc']),
+                                           str(data['spc1']) + '/' + str(data['spc2']), '-', data['atclNo'], data['rltrNm'], 'https://m.land.naver.com/article/info/'+str(data['atclNo'])]
+            else:
+                try:
+                    df.loc[len(df)] = [type, location+' '+data['atclNm']+' '+data['bildNm']+' '+data['flrInfo'], gunn, str(data['prc'])+'/'+str(data['rentPrc']), str(data['spc1'])+'/'+str(data['spc2']), data['atclFetrDesc'], data['atclNo'], data['rltrNm'], 'https://m.land.naver.com/article/info/'+str(data['atclNo'])]
+                except KeyError:
+                    df.loc[len(df)] = [type, location+' '+data['atclNm']+' '+data['bildNm']+' '+data['flrInfo'], gunn, str(data['prc'])+'/'+str(data['rentPrc']), str(data['spc1'])+'/'+str(data['spc2']), '-', data['atclNo'], data['rltrNm'], 'https://m.land.naver.com/article/info/'+str(data['atclNo'])]
     print(df)
-df.to_csv('result.csv')
+df.to_csv('result.csv', encoding='utf-8-sig')
