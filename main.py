@@ -158,52 +158,18 @@ for i in range(1, int((total_cnt) / 20) + 2):
             prc = price_format(data['prc'])
         elif (type == '월세') | (type == '단기임대'):
             prc = price_format(data['prc']) + '/' + price_format(data['rentPrc'])
-        if sameCnt >= 2:  # 한 건물에 대해 여러개의 매물이 있을 경우
-            url_jung = 'https://m.land.naver.com/article/getSameAddrArticle?articleNo=' + str(data['atclNo'])  # 중복되는 매물에 대한 url
-            response = requests.get(url_jung, headers=header)
-            soup = BeautifulSoup(response.text, 'html.parser')
 
-            try:
-                json_jung = json.loads(soup.contents[0])
-            except json.decoder.JSONDecodeError:
-                response = robot_auth(response, url_jung)
-                soup = BeautifulSoup(response.text, 'html.parser')
-                json_jung = json.loads(soup.contents[0])
-
-            for data in json_jung:  # 원래 data는 필요 없어서 오버라이딩 해도 됨
-                location = get_loc(data)
-                if (type == '매매') | (type == '전세'):
-                    prc = price_format(data['prc'])
-                elif (type == '월세') | (type == '단기임대'):
-                    prc = price_format(data['prc']) + '/' + price_format(data['rentPrc'])
-                try:
-                    df.loc[len(df)] = [type,
-                                       location + ' ' + data['atclNm'] + ' ' + data['bildNm'] + ' ' + data[
-                                           'flrInfo'],
-                                       gunn, prc, str(data['spc1']) + '/' + str(data['spc2']),
-                                       data['atclFetrDesc'], data['atclNo'], data['rltrNm'],
-                                       'https://m.land.naver.com/article/info/' + str(data['atclNo'])]
-
-                except KeyError:
-                    df.loc[len(df)] = [type,
-                                       location + ' ' + data['atclNm'] + ' ' + data['bildNm'] + ' ' + data[
-                                           'flrInfo'],
-                                       gunn, prc, str(data['spc1']) + '/' + str(data['spc2']), '-', data['atclNo'],
-                                       data['rltrNm'],
-                                       'https://m.land.naver.com/article/info/' + str(data['atclNo'])]
-
-        else:
-            location = get_loc(data)
-            try:
-                df.loc[len(df)] = [type,
-                                   location + ' ' + data['atclNm'] + ' ' + data['bildNm'] + ' ' + data['flrInfo'],
-                                   gunn, prc, str(data['spc1']) + '/' + str(data['spc2']), data['atclFetrDesc'],
-                                   data['atclNo'], data['rltrNm'],
-                                   'https://m.land.naver.com/article/info/' + str(data['atclNo'])]
-            except KeyError:
-                df.loc[len(df)] = [type,
-                                   location + ' ' + data['atclNm'] + ' ' + data['bildNm'] + ' ' + data['flrInfo'],
-                                   gunn, prc, str(data['spc1']) + '/' + str(data['spc2']), '-', data['atclNo'],
-                                   data['rltrNm'], 'https://m.land.naver.com/article/info/' + str(data['atclNo'])]
+        location = get_loc(data)
+        try:
+            df.loc[len(df)] = [type,
+                               location + ' ' + data['atclNm'] + ' ' + data['bildNm'] + ' ' + data['flrInfo'],
+                               gunn, prc, str(data['spc1']) + '/' + str(data['spc2']), data['atclFetrDesc'],
+                               data['atclNo'], data['rltrNm'],
+                               'https://m.land.naver.com/article/info/' + str(data['atclNo'])]
+        except KeyError:
+            df.loc[len(df)] = [type,
+                               location + ' ' + data['atclNm'] + ' ' + data['bildNm'] + ' ' + data['flrInfo'],
+                               gunn, prc, str(data['spc1']) + '/' + str(data['spc2']), '-', data['atclNo'],
+                               data['rltrNm'], 'https://m.land.naver.com/article/info/' + str(data['atclNo'])]
     print(df)
 df.to_csv('result.csv', encoding='utf-8-sig')
