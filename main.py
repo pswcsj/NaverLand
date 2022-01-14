@@ -55,11 +55,13 @@ def get_loc(data):  # 위도, 경도 값을 바탕으로 해당 지역명을 반
     res = requests.get(geo_url, headers=header)
     soop = BeautifulSoup(res.text, 'html.parser')
 
+    print(json.loads(soop.contents[0])['results'])
     json_ju = json.loads(soop.contents[0])['results'][0]
     location_geo = json_ju['region']['area1']['name'] + ' ' + json_ju['region']['area2']['name'] + ' ' + \
                json_ju['region']['area3']['name'] + ' ' + json_ju['region']['area4']['name'] + \
                json_ju['land']['number1'] + '-' + json_ju['land']['number2']
     return location_geo
+
 
 def robot_auth(response, url):
     print("https://m.land.naver.com/error/abuse 에 접속해서 로봇 인증을 해주세요")
@@ -171,11 +173,15 @@ for i in range(1, int((total_cnt) / 20) + 2):
                 json_jung = json.loads(soup.contents[0])
 
             for data in json_jung:  # 원래 data는 필요 없어서 오버라이딩 해도 됨
-                location = get_loc(data)
+                try:  # 주소를 허위기재( ex 0,0)하면 오류가 나니 이것을 방지
+                    location = get_loc(data)
+                except IndexError:
+                    location = '-'
                 if (type == '매매') | (type == '전세'):
                     prc = price_format(data['prc'])
                 elif (type == '월세') | (type == '단기임대'):
                     prc = price_format(data['prc']) + '/' + price_format(data['rentPrc'])
+
                 try:
                     df.loc[len(df)] = [type,
                                        location + ' ' + data['atclNm'] + ' ' + data['bildNm'] + ' ' + data[
@@ -193,7 +199,9 @@ for i in range(1, int((total_cnt) / 20) + 2):
                                        'https://m.land.naver.com/article/info/' + str(data['atclNo'])]
 
         else:
-            location = get_loc(data)
+            try: location = get_loc(data)  # 주소를 허위기재( ex 0,0)하면 오류가 나니 이것을 방지
+            except IndexError:
+                location = '-'
             try:
                 df.loc[len(df)] = [type,
                                    location + ' ' + data['atclNm'] + ' ' + data['bildNm'] + ' ' + data['flrInfo'],
