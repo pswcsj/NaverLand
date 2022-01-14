@@ -55,7 +55,6 @@ def get_loc(data):  # 위도, 경도 값을 바탕으로 해당 지역명을 반
     res = requests.get(geo_url, headers=header)
     soop = BeautifulSoup(res.text, 'html.parser')
 
-    print(json.loads(soop.contents[0])['results'])
     json_ju = json.loads(soop.contents[0])['results'][0]
     location_geo = json_ju['region']['area1']['name'] + ' ' + json_ju['region']['area2']['name'] + ' ' + \
                json_ju['region']['area3']['name'] + ' ' + json_ju['region']['area4']['name'] + \
