@@ -54,7 +54,6 @@ def get_loc(data):  # 위도, 경도 값을 바탕으로 해당 지역명을 반
         data['lng']) + ',' + str(data['lat'])
     res = requests.get(geo_url, headers=header)
     soop = BeautifulSoup(res.text, 'html.parser')
-
     json_ju = json.loads(soop.contents[0])['results'][0]
     location_geo = json_ju['region']['area1']['name'] + ' ' + json_ju['region']['area2']['name'] + ' ' + \
                json_ju['region']['area3']['name'] + ' ' + json_ju['region']['area4']['name'] + \
@@ -159,7 +158,8 @@ for i in range(1, int((total_cnt) / 20) + 2):
         elif (type == '월세') | (type == '단기임대'):
             prc = price_format(data['prc']) + '/' + price_format(data['rentPrc'])
 
-        location = get_loc(data)
+        # location = get_loc(data)
+        location = loc
         try:
             df.loc[len(df)] = [type,
                                location + ' ' + data['atclNm'] + ' ' + data['bildNm'] + ' ' + data['flrInfo'],
